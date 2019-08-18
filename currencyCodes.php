@@ -5,7 +5,7 @@
  *
  * @package    enrol_payment
  * @copyright  2018 Seth Yoder
- * @author     Seth Yoder
+ * @author     Seth Yoder <seth.a.yoder@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 /*
