@@ -17,6 +17,10 @@ require_once('paymentlib.php');
 
 defined('MOODLE_INTERNAL') || die();
 
+define('ENROL_PAYMENT_RESTRICTION_NONE', 0);
+define('ENROL_PAYMENT_RESTRICTION_ALL', 1);
+define('ENROL_PAYMENT_RESTRICTION_ANY', 2);
+
 /**
  * Payment enrolment plugin implementation.
  * @copyright  2018 Seth Yoder
@@ -55,6 +59,9 @@ class enrol_payment_plugin extends enrol_plugin {
     public function get_info_icons(array $instances) {
         $found = false;
         foreach ($instances as $instance) {
+            if (!$this->check_restrictions($instance)) {
+                continue;
+            }
             if ($instance->enrolstartdate != 0 && $instance->enrolstartdate > time()) {
                 continue;
             }
@@ -115,6 +122,39 @@ class enrol_payment_plugin extends enrol_plugin {
     }
 
     /**
+     * Returns serialized restrictions object
+     * @param object or array
+     * @return string
+     */
+    public function serialize_restrictions($fields) {
+
+      $fields = (array) $fields;
+      $restrictions = (object) [
+        'prerequisite'=>[
+          'mode'=>$fields['prerequisite_mode'] || null,
+          'id'=>$fields['prerequisite_id']
+        ],
+        'corequisite'=>[
+          'mode'=>$fields['corequisite_mode'],
+          'id'=>$fields['corequisite_id']
+        ],
+        'conflicting'=>[
+          'mode'=>$fields['conflicting_mode'],
+          'id'=>$fields['conflicting_id']
+        ],
+        'cohortmember'=>[
+          'mode'=>$fields['cohortmember_mode'],
+          'id'=>$fields['cohortmember_id']
+        ],
+        'cohortnonmember'=>[
+          'mode'=>$fields['cohortnonmember_mode'],
+          'id'=>$fields['cohortnonmember_id']
+        ]
+      ];
+      return serialize($restrictions);
+    }
+
+    /**
      * Add new instance of enrol plugin.
      * @param object $course
      * @param array $fields instance fields
@@ -124,6 +164,7 @@ class enrol_payment_plugin extends enrol_plugin {
         if ($fields && !empty($fields['cost'])) {
             $fields['cost'] = unformat_float($fields['cost']);
         }
+        $fields['customtext2'] = $this->serialize_restrictions($fields);
         return parent::add_instance($course, $fields);
     }
 
@@ -137,6 +178,7 @@ class enrol_payment_plugin extends enrol_plugin {
         if ($data) {
             $data->cost = unformat_float($data->cost);
         }
+        $data->customtext2 = $this->serialize_restrictions($data);
         return parent::update_instance($instance, $data);
     }
 
@@ -294,6 +336,10 @@ class enrol_payment_plugin extends enrol_plugin {
     function enrol_page_hook(stdClass $instance) {
         global $CFG, $USER, $OUTPUT, $PAGE, $DB;
 
+        if (!$this->check_restrictions($instance)) {
+          return;
+        }
+
         ob_start();
 
         if ($DB->record_exists('user_enrolments', array('userid'=>$USER->id, 'enrolid'=>$instance->id))) {
@@ -386,7 +432,7 @@ class enrol_payment_plugin extends enrol_plugin {
 
                 $calculatecost = paymentlib\enrol_payment_calculate_cost($instance,$payment_obj,true);
                 $calculatecost_untaxed = paymentlib\enrol_payment_calculate_cost($instance,$payment_obj,false);
-                $localisedcost = $calculatecost['subtotal_localised']; 
+                $localisedcost = $calculatecost['subtotal_localised'];
                 $localisedcost_untaxed = $calculatecost_untaxed['subtotal_localised'];
 
                 //If percentage discount, get the percentage amount to display
@@ -525,6 +571,7 @@ class enrol_payment_plugin extends enrol_plugin {
      * @return bool
      */
     public function edit_instance_form($instance, MoodleQuickForm $mform, $context) {
+        global $DB, $COURSE;
         //Add "float2" element for float formatting
         require_once('HTML/QuickForm.php');
         MoodleQuickForm::registerElementType('float2', dirname(__FILE__) . '/classes/float2.php', "MoodleQuickForm_float2");
@@ -599,42 +646,6 @@ class enrol_payment_plugin extends enrol_plugin {
         }
         $mform->addElement('select', 'customint2', get_string('enrolgroup', 'enrol_payment'), $options);
 
-        if($this->get_config('enablediscounts')) {
-            //Discount type radio buttons
-            $radioarray=array();
-            $radioarray[]=$mform->createElement('radio', 'customint3', '', get_string('nodiscount', 'enrol_payment'), 0);
-            $radioarray[]=$mform->createElement('radio', 'customint3', '', get_string('percentdiscount', 'enrol_payment'), 1);
-            $radioarray[]=$mform->createElement('radio', 'customint3', '', get_string('valuediscount', 'enrol_payment'), 2);
-            $mform->addGroup($radioarray, 'customint3', get_string('discounttype', 'enrol_payment'), array(' '), false);
-            $mform->addHelpButton('customint3', 'discounttype', 'enrol_payment');
-
-            //Discount amount - float2
-            $mform->addElement('float2', 'customdec1', get_string('discountamount', 'enrol_payment'), array('size' => 4));
-            $mform->setType('customdec1', PARAM_RAW);
-            $mform->setDefault('customdec1', floatval(0.00));
-            $mform->disabledIf('customdec1', 'customint3', 'eq', 0);
-            $mform->addHelpButton('customdec1', 'discountamount', 'enrol_payment');
-
-            $mform->addElement('advcheckbox', 'customint7', get_string('requirediscountcode', 'enrol_payment'));
-            $mform->addHelpButton('customint7', 'requirediscountcode', 'enrol_payment');
-            $mform->setType('customint7', PARAM_INT);
-            $mform->setDefault('customint7', 0);
-
-            //Discount code - text
-            $mform->addElement('text', 'customtext2', get_string('discountcode', 'enrol_payment'));
-            $mform->setType('customtext2', PARAM_TEXT);
-            $mform->setDefault('customtext2', '');
-            $mform->disabledIf('customtext2', 'customint3', 'eq', 0);
-            $mform->disabledIf('customtext2', 'customint7', 'eq', 0);
-
-            //Discount threshold - customint8
-            $mform->addElement('text', 'customint8', get_string('discountthreshold', 'enrol_payment'));
-            $mform->setType('customint8', PARAM_INT);
-            $mform->setDefault('customint8', 1);
-            $mform->disabledIf('customint8', 'customint3', 'eq', 0);
-            $mform->addHelpButton('customint8', 'discountthreshold', 'enrol_payment');
-        }
-
         $mform->addElement('advcheckbox', 'customint4', get_string('requireshipping', 'enrol_payment'));
         $mform->setType('customint4', PARAM_INT);
 
@@ -643,14 +654,219 @@ class enrol_payment_plugin extends enrol_plugin {
             $mform->setType('customint5', PARAM_INT);
         }
 
-        //$mform->addElement('advcheckbox', 'customint6', get_string('enabletaxcalculation', 'enrol_payment'));
-        //$mform->setType('customint6', PARAM_INT);
-        //$mform->addHelpButton('customint6', 'enabletaxcalculation', 'enrol_payment');
+        // prerequisite, corequisite, conflicting
+        $courses = $DB->get_records_sql_menu('select id, fullname from {course} where id != :courseid order by fullname asc', ['courseid'=>$COURSE->id]);
+        $cohorts = $DB->get_records_sql_menu('select id, name from {cohort} order by name asc');
+        $restrictions = $this->get_restrictions($instance);
+        //var_dump($restrictions); die;
+        $options = array(
+            'multiple' => true,
+            'noselectionstring' => ''
+        );
+
+        $mform->addElement('header', 'header_prerequisite', get_string('prerequisite', 'enrol_payment'));
+        $mform->setExpanded('header_prerequisite');
+        $radio=array();
+        $radio[] = $mform->createElement('radio', 'prerequisite_mode', '', get_string('none'), 0);
+        $radio[] = $mform->createElement('radio', 'prerequisite_mode', '', get_string('all'), 1);
+        $radio[] = $mform->createElement('radio', 'prerequisite_mode', '', get_string('any'), 2);
+        $mform->addGroup($radio, 'prereqradio', '', array(' '), false);
+        $mform->setDefault('prerequisite_mode', $restrictions->prerequisite['mode']);
+        $mform->addElement('autocomplete', 'prerequisite_id', '', $courses, $options);
+        $mform->setDefault('prerequisite_id', $restrictions->prerequisite['id']);
+        $mform->addHelpButton('header_prerequisite', 'prerequisite', 'enrol_payment');
+        $mform->hideIf('prerequisite_id[]', 'prerequisite_mode', 'eq', 0);
+
+        $mform->addElement('header', 'header_corequisite', get_string('corequisite', 'enrol_payment'));
+        $mform->setExpanded('header_corequisite');
+        $radio=array();
+        $radio[] = $mform->createElement('radio', 'corequisite_mode', '', get_string('none'), 0);
+        $radio[] = $mform->createElement('radio', 'corequisite_mode', '', get_string('all'), 1);
+        $radio[] = $mform->createElement('radio', 'corequisite_mode', '', get_string('any'), 2);
+        $mform->addGroup($radio, 'coreqradio', '', array(' '), false);
+        $mform->setDefault('corequisite_mode', $restrictions->corequisite['mode']);
+        $mform->addElement('autocomplete', 'corequisite_id', '', $courses, $options);
+        $mform->setDefault('corequisite_id', $restrictions->corequisite['id']);
+        $mform->addHelpButton('header_corequisite', 'corequisite', 'enrol_payment');
+        $mform->hideIf('corequisite_id[]', 'corequisite_mode', 'eq', 0);
+
+        $mform->addElement('header', 'header_conflicting', get_string('conflicting', 'enrol_payment'));
+        $mform->setExpanded('header_conflicting');
+        $radio=array();
+        $radio[] = $mform->createElement('radio', 'conflicting_mode', '', get_string('none'), 0);
+        $radio[] = $mform->createElement('radio', 'conflicting_mode', '', get_string('any'), 2);
+        $mform->addGroup($radio, 'conflictingradio', '', array(' '), false);
+        $mform->setDefault('conflicting_mode', $restrictions->conflicting['mode']);
+        $mform->addElement('autocomplete', 'conflicting_id', '', $courses, $options);
+        $mform->setDefault('conflicting_id', $restrictions->conflicting['id']);
+        $mform->addHelpButton('header_conflicting', 'conflicting', 'enrol_payment');
+        $mform->hideIf('conflicting_id[]', 'conflicting_mode', 'eq', 0);
+
+        $mform->addElement('header', 'header_cohortmember', get_string('cohortmember', 'enrol_payment'));
+        $mform->setExpanded('header_cohortmember');
+        $radio=array();
+        $radio[] = $mform->createElement('radio', 'cohortmember_mode', '', get_string('none'), 0);
+        $radio[] = $mform->createElement('radio', 'cohortmember_mode', '', get_string('all'), 1);
+        $radio[] = $mform->createElement('radio', 'cohortmember_mode', '', get_string('any'), 2);
+        $mform->addGroup($radio, 'cohortmemberradio', '', array(' '), false);
+        $mform->setDefault('cohortmember_mode', $restrictions->cohortmember['mode']);
+        $mform->addElement('autocomplete', 'cohortmember_id', '', $cohorts, $options);
+        $mform->setDefault('cohortmember_id', $restrictions->cohortmember['id']);
+        $mform->addHelpButton('header_cohortmember', 'cohortmember', 'enrol_payment');
+        $mform->hideIf('cohortmember_id[]', 'cohortmember_mode', 'eq', 0);
+
+        $mform->addElement('header', 'header_cohortnonmember', get_string('cohortnonmember', 'enrol_payment'));
+        $mform->setExpanded('header_cohortnonmember');
+        $radio=array();
+        $radio[] = $mform->createElement('radio', 'cohortnonmember_mode', '', get_string('none'), 0);
+        $radio[] = $mform->createElement('radio', 'cohortnonmember_mode', '', get_string('all'), 1);
+        $radio[] = $mform->createElement('radio', 'cohortnonmember_mode', '', get_string('any'), 2);
+        $mform->addGroup($radio, 'cohortnonmemberradio', '', array(' '), false);
+        $mform->setDefault('cohortnonmember_mode', $restrictions->cohortnonmember['mode']);
+        $mform->addElement('autocomplete', 'cohortnonmember_id', '', $cohorts, $options);
+        $mform->setDefault('cohortnonmember_id', $restrictions->cohortnonmember['id']);
+        $mform->addHelpButton('header_cohortnonmember', 'cohortnonmember', 'enrol_payment');
+        $mform->hideIf('cohortnonmember_id[]', 'cohortnonmember_mode', 'eq', 0);
 
         if (enrol_accessing_via_instance($instance)) {
             $warningtext = get_string('instanceeditselfwarningtext', 'core_enrol');
             $mform->addElement('static', 'selfwarn', get_string('instanceeditselfwarning', 'core_enrol'), $warningtext);
         }
+    }
+
+    public function get_restrictions($instance) {
+      return unserialize($instance->customtext2);
+    }
+
+    public function get_complete($ids, $mode) {
+      global $USER;
+
+      $allcomplete = true;
+      foreach ($ids as $courseid) {
+        $ccompletion = new completion_completion([
+          'userid' => $USER->id,
+          'course' => $courseid]);
+        $allcomplete = $allcomplete && $ccompletion->is_complete();
+      }
+      return $allcomplete;
+    }
+
+    public function get_enrolled($ids, $mode) {
+      $courses = enrol_get_my_courses(null, null, 0, $condition->prerequisite['id']);
+      if ($mode === 'any') {
+        return count($courses) > 0;
+      } else if ($mode === 'all') {
+        return count($courses === count($ids));
+      }
+    }
+
+    public function check_restrictions($instance) {
+      global $USER, $DB;
+
+      $allowed = true;
+      $condition = $this->get_restrictions($instance);
+      if (!$condition) {
+        return true;
+      }
+      // check prerequisites
+      switch ($condition->prerequisite['mode']) {
+        case ENROL_PAYMENT_RESTRICTION_NONE: {
+          break;
+        }
+        case ENROL_PAYMENT_RESTRICTION_ALL: {
+          $allowed = $allowed && $this->get_complete($condition->prerequisite['id'], 'all');
+          break;
+        }
+        case ENROL_PAYMENT_RESTRICTION_ANY: {
+          $allowed = $allowed && $this->get_complete($condition->prerequisite['id'], 'any');
+          break;
+        }
+        default: {
+          throw new Exception('No restriction mode specified');
+        }
+      }
+      // check corequisites
+      switch ($condition->corequisite['mode']) {
+        case ENROL_PAYMENT_RESTRICTION_NONE: {
+          break;
+        }
+        case ENROL_PAYMENT_RESTRICTION_ALL: {
+          $allowed = $allowed && $this->get_enrolled($condition->corequisite['id'], 'all');
+          break;
+        }
+        case ENROL_PAYMENT_RESTRICTION_ANY: {
+          $allowed = $allowed && $this->get_enrolled($condition->corequisite['id'], 'any');
+          break;
+        }
+        default: {
+          throw new Exception('No restriction mode specified');
+        }
+      }
+      // check conflicting
+      switch ($condition->conflicting['mode']) {
+        case ENROL_PAYMENT_RESTRICTION_NONE: {
+          break;
+        }
+        case ENROL_PAYMENT_RESTRICTION_ANY: {
+          $allowed = $allowed && $this->get_complete($condition->conflicting['id'], 'any');
+          $allowed = $allowed && $this->get_enrolled($condition->conflicting['id'], 'any');
+          break;
+        }
+        default: {
+          throw new Exception('No restriction mode specified');
+        }
+      }
+      // check cohortmember
+      switch ($condition->cohortmember['mode']) {
+        case ENROL_PAYMENT_RESTRICTION_NONE: {
+          break;
+        }
+        case ENROL_PAYMENT_RESTRICTION_ALL: {
+          $allcohort = true;
+          foreach ($condition->cohortmember['id'] as $cohortid) {
+            $allcohort = $allcohort && cohort_is_member($cohortid, $USER->id);
+          }
+          $allowed = $allowed && $allcohort;
+          break;
+        }
+        case ENROL_PAYMENT_RESTRICTION_ANY: {
+          $allcohort = true;
+          foreach ($condition->cohortmember['id'] as $cohortid) {
+            $allcohort = $allcohort || cohort_is_member($cohortid, $USER->id);
+          }
+          $allowed = $allowed && $allcohort;
+          break;
+        }
+        default: {
+          throw new Exception('No restriction mode specified');
+        }
+      }
+      // check cohortnonmember
+      switch ($condition->cohortnonmember['mode']) {
+        case ENROL_PAYMENT_RESTRICTION_NONE: {
+          break;
+        }
+        case ENROL_PAYMENT_RESTRICTION_ALL: {
+          $allcohort = true;
+          foreach ($condition->cohortmember['id'] as $cohortid) {
+            $allcohort = $allcohort && !cohort_is_member($cohortid, $USER->id);
+          }
+          $allowed = $allowed && $allcohort;
+          break;
+        }
+        case ENROL_PAYMENT_RESTRICTION_ANY: {
+          $allcohort = true;
+          foreach ($condition->cohortmember['id'] as $cohortid) {
+            $allcohort = $allcohort || !cohort_is_member($cohortid, $USER->id);
+          }
+          $allowed = $allowed && $allcohort;
+          break;
+        }
+        default: {
+          throw new Exception('No restriction mode specified');
+        }
+      }
+      return $allowed;
     }
 
     /**
@@ -671,61 +887,26 @@ class enrol_payment_plugin extends enrol_plugin {
             $errors['enrolenddate'] = get_string('enrolenddaterror', 'enrol_payment');
         }
 
+        if (count(array_intersect($data['prerequisite_id'], $data['corequisite_id'])) > 0) {
+          $errors['prerequisite_id'] = get_string('prerequisite_corequisite_overlap', 'enrol_payment');
+          $errors['corequisite_id'] = get_string('prerequisite_corequisite_overlap', 'enrol_payment');
+        }
+        if (count(array_intersect($data['prerequisite_id'], $data['conflicting_id'])) > 0) {
+          $errors['prerequisite_id'] = get_string('prerequisite_conflicting_overlap', 'enrol_payment');
+          $errors['conflicting_id'] = get_string('prerequisite_conflicting_overlap', 'enrol_payment');
+        }
+        if (count(array_intersect($data['corequisite_id'], $data['conflicting_id'])) > 0) {
+          $errors['corequisite_id'] = get_string('corequisite_conflicting_overlap', 'enrol_payment');
+          $errors['conflicting_id'] = get_string('corequisite_conflicting_overlap', 'enrol_payment');
+        }
+        if (count(array_intersect($data['cohortmember_id'], $data['cohortnonmember_id'])) > 0) {
+          $errors['cohortmember_id'] = get_string('cohort_overlap', 'enrol_payment');
+          $errors['cohortnonmember_id'] = get_string('cohort_overlap', 'enrol_payment');
+        }
+
         $cost = str_replace(get_string('decsep', 'langconfig'), '.', $data['cost']);
         if(!is_numeric($cost)) {
             $errors['cost'] = get_string('costerror', 'enrol_payment');
-        }
-
-        if(array_key_exists("customdec1", $data)) {
-            if(!empty($data['customdec1'])) {
-                $discount_amount = str_replace(get_string('decsep', 'langconfig'), '.', $data['customdec1']);
-                if (!is_numeric($discount_amount)) {
-                    $errors['customdec1'] = get_string('discountamounterror', 'enrol_payment');
-                }
-                $totaldigits = strlen(str_replace('.','',$discount_amount));
-                $digitsafterdecimal = strlen(substr(strrchr($discount_amount, "."), 1));
-                if ($totaldigits > 12 || $digitsafterdecimal > 7) {
-                    $errors['customdec1'] = get_string('discountdigitserror', 'enrol_payment');
-                }
-
-                //If discount amount is filled, discount code must be filled
-                if((!array_key_exists("customtext2", $data)) || empty($data['customtext2'])) {
-                    //Ensure that "Require discount code" is checked before showing the error
-                    if(array_key_exists("customint7", $data) && ($data["customint7"] != 0)) {
-                        //Ensure that the discount type is not "No discount".
-                        if(array_key_exists("customint3", $data) && ($data["customint3"] != 0)) {
-                            $errors['customtext2'] = get_string('needdiscountcode', 'enrol_payment');
-                        }
-                    }
-                }
-            }
-        }
-
-        //If discount code is filled, discount amount must be filled
-        if(array_key_exists("customtext2", $data) && (!empty($data['customtext2']))) {
-            if((!array_key_exists("customdec1", $data)) || empty($data['customdec1'])) {
-                if(array_key_exists("customint3", $data) && ($data["customint3"] != 0)) {
-                    $errors['customdec1'] = get_string('needdiscountamount', 'enrol_payment');
-                }
-            }
-        }
-
-        if(array_key_exists("customint8", $data)) {
-            //Ensure Discount Threshold is greater than 0
-            if($data['customint8'] < 1) {
-                $errors['customint8'] = get_string('discountthresholdtoolow', 'enrol_payment');
-            } else if($data['customint8'] > 1) {
-                //Ensure Multiple Enrolment is enabled if discount threshold is greater than 1
-                if(array_key_exists("customint5", $data)) {
-                    if(!$data['customint5']) {
-                        $errors['customint8'] = get_string('discountthresholdbutnomultipleenrol', 'enrol_payment');
-                    }
-                }
-
-                if(!$this->get_config('allowmultipleenrol')) {
-                    $errors['customint8'] = get_string('discountthresholdbutnomultipleenrol', 'enrol_payment');
-                }
-            }
         }
 
         $validstatus = array_keys($this->get_status_options());

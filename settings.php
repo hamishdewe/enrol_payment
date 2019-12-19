@@ -47,10 +47,6 @@ if ($ADMIN->fulltree) {
                                                     get_string('allowmultipleenrol', 'enrol_payment'),
                                                     get_string('allowmultipleenrol_help', 'enrol_payment'),0));
 
-    $settings->add(new admin_setting_configcheckbox('enrol_payment/enablediscounts',
-                                                    get_string('allowdiscounts', 'enrol_payment'),
-                                                    get_string('allowdiscounts_help', 'enrol_payment'),0));
-
     $settings->add(new admin_setting_configcheckbox('enrol_payment/validatezipcode',
             get_string('validatezipcode', 'enrol_payment'),
             get_string('validatezipcode_desc', 'enrol_payment'), 0));
