@@ -655,14 +655,7 @@ class enrol_payment_plugin extends enrol_plugin {
         }
 
         // prerequisite, corequisite, conflicting
-        $courses = $DB->get_records_sql_menu('select id, fullname from {course} where id != :courseid order by fullname asc', ['courseid'=>$COURSE->id]);
-        $cohorts = $DB->get_records_sql_menu('select id, name from {cohort} order by name asc');
         $restrictions = $this->get_restrictions($instance);
-        //var_dump($restrictions); die;
-        $options = array(
-            'multiple' => true,
-            'noselectionstring' => ''
-        );
 
         $mform->addElement('header', 'header_prerequisite', get_string('prerequisite', 'enrol_payment'));
         $mform->setExpanded('header_prerequisite');
@@ -672,7 +665,8 @@ class enrol_payment_plugin extends enrol_plugin {
         $radio[] = $mform->createElement('radio', 'prerequisite_mode', '', get_string('any'), 2);
         $mform->addGroup($radio, 'prereqradio', '', array(' '), false);
         $mform->setDefault('prerequisite_mode', $restrictions->prerequisite['mode']);
-        $mform->addElement('autocomplete', 'prerequisite_id', '', $courses, $options);
+        $mform->addElement('course', 'prerequisite_id', '',
+          ['multiple' => true, 'exclude' => $COURSE->id, 'onlywithcompletion' => true]);
         $mform->setDefault('prerequisite_id', $restrictions->prerequisite['id']);
         $mform->addHelpButton('header_prerequisite', 'prerequisite', 'enrol_payment');
         $mform->hideIf('prerequisite_id[]', 'prerequisite_mode', 'eq', 0);
@@ -685,7 +679,7 @@ class enrol_payment_plugin extends enrol_plugin {
         $radio[] = $mform->createElement('radio', 'corequisite_mode', '', get_string('any'), 2);
         $mform->addGroup($radio, 'coreqradio', '', array(' '), false);
         $mform->setDefault('corequisite_mode', $restrictions->corequisite['mode']);
-        $mform->addElement('autocomplete', 'corequisite_id', '', $courses, $options);
+        $mform->addElement('course', 'corequisite_id', '', ['multiple' => true, 'exclude' => $COURSE->id]);
         $mform->setDefault('corequisite_id', $restrictions->corequisite['id']);
         $mform->addHelpButton('header_corequisite', 'corequisite', 'enrol_payment');
         $mform->hideIf('corequisite_id[]', 'corequisite_mode', 'eq', 0);
@@ -697,11 +691,12 @@ class enrol_payment_plugin extends enrol_plugin {
         $radio[] = $mform->createElement('radio', 'conflicting_mode', '', get_string('any'), 2);
         $mform->addGroup($radio, 'conflictingradio', '', array(' '), false);
         $mform->setDefault('conflicting_mode', $restrictions->conflicting['mode']);
-        $mform->addElement('autocomplete', 'conflicting_id', '', $courses, $options);
+        $mform->addElement('course', 'conflicting_id', '', ['multiple' => true, 'exclude' => $COURSE->id]);
         $mform->setDefault('conflicting_id', $restrictions->conflicting['id']);
         $mform->addHelpButton('header_conflicting', 'conflicting', 'enrol_payment');
         $mform->hideIf('conflicting_id[]', 'conflicting_mode', 'eq', 0);
 
+        $cohorts = $DB->get_records_sql_menu('select id, name from {cohort} order by name asc');
         $mform->addElement('header', 'header_cohortmember', get_string('cohortmember', 'enrol_payment'));
         $mform->setExpanded('header_cohortmember');
         $radio=array();
@@ -710,7 +705,8 @@ class enrol_payment_plugin extends enrol_plugin {
         $radio[] = $mform->createElement('radio', 'cohortmember_mode', '', get_string('any'), 2);
         $mform->addGroup($radio, 'cohortmemberradio', '', array(' '), false);
         $mform->setDefault('cohortmember_mode', $restrictions->cohortmember['mode']);
-        $mform->addElement('autocomplete', 'cohortmember_id', '', $cohorts, $options);
+        $mform->addElement('autocomplete', 'cohortmember_id', '', $cohorts, ['multiple' => true]);
+        //print_r($restrictions); die;
         $mform->setDefault('cohortmember_id', $restrictions->cohortmember['id']);
         $mform->addHelpButton('header_cohortmember', 'cohortmember', 'enrol_payment');
         $mform->hideIf('cohortmember_id[]', 'cohortmember_mode', 'eq', 0);
@@ -723,7 +719,7 @@ class enrol_payment_plugin extends enrol_plugin {
         $radio[] = $mform->createElement('radio', 'cohortnonmember_mode', '', get_string('any'), 2);
         $mform->addGroup($radio, 'cohortnonmemberradio', '', array(' '), false);
         $mform->setDefault('cohortnonmember_mode', $restrictions->cohortnonmember['mode']);
-        $mform->addElement('autocomplete', 'cohortnonmember_id', '', $cohorts, $options);
+        $mform->addElement('autocomplete', 'cohortnonmember_id', '', $cohorts, ['multiple' => true]);
         $mform->setDefault('cohortnonmember_id', $restrictions->cohortnonmember['id']);
         $mform->addHelpButton('header_cohortnonmember', 'cohortnonmember', 'enrol_payment');
         $mform->hideIf('cohortnonmember_id[]', 'cohortnonmember_mode', 'eq', 0);
