@@ -14,6 +14,8 @@
 require_once('classes/util.php');
 require_once('currencyCodes.php');
 require_once('paymentlib.php');
+require_once($CFG->dirroot . '/cohort/lib.php');
+require_once($CFG->libdir . '/completionlib.php');
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -748,7 +750,7 @@ class enrol_payment_plugin extends enrol_plugin {
     }
 
     public function get_enrolled($ids, $mode) {
-      $courses = enrol_get_my_courses(null, null, 0, $condition->prerequisite['id']);
+      $courses = enrol_get_my_courses(null, null, 0, $ids);
       if ($mode === 'any') {
         return count($courses) > 0;
       } else if ($mode === 'all') {
