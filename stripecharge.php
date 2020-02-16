@@ -357,3 +357,7 @@ function message_payment_error_to_admin($subject, $data) {
     $eventdata->smallmessage      = '';
     message_send($eventdata);
 }
+
+function enrol_payment_charge_exception_handler($ex) {
+
+}

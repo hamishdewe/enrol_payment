@@ -47,10 +47,6 @@ if ($ADMIN->fulltree) {
                                                     get_string('allowmultipleenrol', 'enrol_payment'),
                                                     get_string('allowmultipleenrol_help', 'enrol_payment'),0));
 
-    $settings->add(new admin_setting_configcheckbox('enrol_payment/enablediscounts',
-                                                    get_string('allowdiscounts', 'enrol_payment'),
-                                                    get_string('allowdiscounts_help', 'enrol_payment'),0));
-
     $settings->add(new admin_setting_configcheckbox('enrol_payment/validatezipcode',
             get_string('validatezipcode', 'enrol_payment'),
             get_string('validatezipcode_desc', 'enrol_payment'), 0));
@@ -94,15 +90,15 @@ if ($ADMIN->fulltree) {
         null,
         null));
 
-    $settings->add(new admin_setting_configcheckbox('enrol_payment/definetaxes',
-        get_string('definetaxes', 'enrol_payment'),
-        '',
-        0));
-
-    $settings->add(new admin_setting_configtextarea('enrol_payment/taxdefinitions',
-        get_string('taxdefinitions', 'enrol_payment'),
-        get_string('taxdefinitions_help', 'enrol_payment'),
-        "NS : 0.15\nPE : 0.15\nON : 0.13\nQC : 0.05"));
+    // $settings->add(new admin_setting_configcheckbox('enrol_payment/definetaxes',
+    //     get_string('definetaxes', 'enrol_payment'),
+    //     '',
+    //     0));
+    //
+    // $settings->add(new admin_setting_configtextarea('enrol_payment/taxdefinitions',
+    //     get_string('taxdefinitions', 'enrol_payment'),
+    //     get_string('taxdefinitions_help', 'enrol_payment'),
+    //     "NS : 0.15\nPE : 0.15\nON : 0.13\nQC : 0.05"));
 
     $settings->add(new admin_setting_configcheckbox('enrol_payment/allowbanktransfer',
         get_string('allowbanktransfer', 'enrol_payment'),
