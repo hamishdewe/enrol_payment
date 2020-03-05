@@ -667,7 +667,7 @@ class enrol_payment_plugin extends enrol_plugin {
         $radio[] = $mform->createElement('radio', 'prerequisite_mode', '', get_string('any'), 2);
         $mform->addGroup($radio, 'prereqradio', '', array(' '), false);
         $mform->addElement('course', 'prerequisite_id', '',
-          ['multiple' => true, 'exclude' => $COURSE->id, 'onlywithcompletion' => true]);
+          ['multiple' => true, 'exclude' => $COURSE->id, 'onlywithcompletion' => true]); 
         $mform->addHelpButton('header_prerequisite', 'prerequisite', 'enrol_payment');
         $mform->hideIf('prerequisite_id[]', 'prerequisite_mode', 'eq', 0);
 
