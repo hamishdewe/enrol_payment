@@ -140,7 +140,7 @@ $string['or'] = "OR";
 
 //TODO use site long name
 $string['usersnotfoundwithemail'] = "Either the registrant(s) have not yet created an account or their account is associated with a different email address:<p></p><ul><li>";
-$string['totalcost'] = 'If your intention is to register <b>yourself as well</b> and your name is not in the list, click <b>Cancel</b>. On the Enrolment page, enter your email address as one of the \"others\" to enrol.</p><p>The <b>{$a->symbol}{$a->discountAmount}{$a->percentSymbol}{$a->perSeat}</b> discount has been applied.</p></p>Total cost:&nbsp;';
+$string['totalcost'] = 'If your intention is to register <b>yourself as well</b> and your name is not in the list, click <b>Cancel</b>. On the Enrolment page, enter your email address as one of the "others" to enrol.</p></p>Total cost:&nbsp;';
 $string['multipleregistrationconfirmuserlist'] = "You are purchasing a registration for each of the following: <p></p><ul><li>";
 $string['enabletaxcalculation'] = "Enable tax calculation";
 $string['enabletaxcalculation_help'] = "If the \"msn\" user profile field is overloaded to store a canadian province abbreviation, calculate the tax and factor into the cost.";
@@ -206,7 +206,7 @@ $string['novalidemailsentered_desc'] = 'No valid email address(es) have been ent
 $string['novalidemailsentered'] = 'No registrant(s) specified';
 $string['totalenrolmentfee'] = 'Total enrolment fee:';
 $string['charge_enrolment'] = 'Enrolment in: ';
-$string['error'] = 'Error'; 
+$string['error'] = 'Error';
 
 $string['prerequisite'] = 'Prerequisite courses';
 $string['prerequisite_help'] = 'Optional. Allow access only to users who have completed all/any selected courses';
